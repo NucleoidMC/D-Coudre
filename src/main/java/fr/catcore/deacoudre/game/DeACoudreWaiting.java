@@ -2,10 +2,11 @@ package fr.catcore.deacoudre.game;
 
 import fr.catcore.deacoudre.game.map.DeACoudreMap;
 import fr.catcore.deacoudre.game.map.DeACoudreMapGenerator;
-import net.minecraft.server.MinecraftServer;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.Vec3d;
-import xyz.nucleoid.plasmid.game.ConfiguredGame;
+import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.game.GameOpenContext;
 import xyz.nucleoid.plasmid.game.GameWorld;
 import xyz.nucleoid.plasmid.game.StartResult;
@@ -17,10 +18,7 @@ import xyz.nucleoid.plasmid.game.event.RequestStartListener;
 import xyz.nucleoid.plasmid.game.player.JoinResult;
 import xyz.nucleoid.plasmid.game.rule.GameRule;
 import xyz.nucleoid.plasmid.game.rule.RuleResult;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.GameMode;
-import xyz.nucleoid.plasmid.game.world.bubble.BubbleWorldConfig;
+import xyz.nucleoid.plasmid.world.bubble.BubbleWorldConfig;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -38,33 +36,35 @@ public class DeACoudreWaiting {
         this.spawnLogic = new DeACoudreSpawnLogic(gameWorld, map);
     }
 
-    public static CompletableFuture<Void> open(GameOpenContext<DeACoudreConfig> gameOpenContext) {
+    public static CompletableFuture<GameWorld> open(GameOpenContext<DeACoudreConfig> gameOpenContext) {
         DeACoudreMapGenerator generator = new DeACoudreMapGenerator(gameOpenContext.getConfig().mapConfig);
 
-        return generator.create().thenAccept(map -> {
+        return generator.create().thenCompose(map -> {
             BubbleWorldConfig worldConfig = new BubbleWorldConfig()
                     .setGenerator(map.asGenerator(gameOpenContext.getServer()))
                     .setDefaultGameMode(GameMode.SPECTATOR)
-                    .setSpawnPos(new Vec3d(0,3,0));
+                    .setSpawnAt(new Vec3d(0,3,0));
 
-            GameWorld gameWorld = gameOpenContext.openWorld(worldConfig);
+            return gameOpenContext.openWorld(worldConfig).thenApply(gameWorld -> {
+                DeACoudreWaiting waiting = new DeACoudreWaiting(gameWorld, map, gameOpenContext.getConfig());
 
-            DeACoudreWaiting waiting = new DeACoudreWaiting(gameWorld, map, gameOpenContext.getConfig());
+                gameWorld.openGame(builder -> {
+                    builder.setRule(GameRule.CRAFTING, RuleResult.DENY);
+                    builder.setRule(GameRule.PORTALS, RuleResult.DENY);
+                    builder.setRule(GameRule.PVP, RuleResult.DENY);
+                    builder.setRule(GameRule.BLOCK_DROPS, RuleResult.DENY);
+                    builder.setRule(GameRule.HUNGER, RuleResult.DENY);
+                    builder.setRule(GameRule.FALL_DAMAGE, RuleResult.DENY);
 
-            gameWorld.openGame(builder -> {
-                builder.setRule(GameRule.CRAFTING, RuleResult.DENY);
-                builder.setRule(GameRule.PORTALS, RuleResult.DENY);
-                builder.setRule(GameRule.PVP, RuleResult.DENY);
-                builder.setRule(GameRule.BLOCK_DROPS, RuleResult.DENY);
-                builder.setRule(GameRule.HUNGER, RuleResult.DENY);
-                builder.setRule(GameRule.FALL_DAMAGE, RuleResult.DENY);
-
-                builder.on(RequestStartListener.EVENT, waiting::requestStart);
-                builder.on(OfferPlayerListener.EVENT, waiting::offerPlayer);
+                    builder.on(RequestStartListener.EVENT, waiting::requestStart);
+                    builder.on(OfferPlayerListener.EVENT, waiting::offerPlayer);
 
 
-                builder.on(PlayerAddListener.EVENT, waiting::addPlayer);
-                builder.on(PlayerDeathListener.EVENT, waiting::onPlayerDeath);
+                    builder.on(PlayerAddListener.EVENT, waiting::addPlayer);
+                    builder.on(PlayerDeathListener.EVENT, waiting::onPlayerDeath);
+                });
+
+                return gameWorld;
             });
         });
     }
@@ -80,12 +80,12 @@ public class DeACoudreWaiting {
     private StartResult requestStart() {
         PlayerConfig playerConfig = this.config.playerConfig;
         if (this.gameWorld.getPlayerCount() < playerConfig.getMinPlayers()) {
-            return StartResult.notEnoughPlayers();
+            return StartResult.NOT_ENOUGH_PLAYERS;
         }
 
         DeACoudreActive.open(this.gameWorld, this.map, this.config);
 
-        return StartResult.ok();
+        return StartResult.OK;
     }
 
     private void addPlayer(ServerPlayerEntity player) {

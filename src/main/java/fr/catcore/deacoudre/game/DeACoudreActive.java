@@ -1,9 +1,21 @@
 package fr.catcore.deacoudre.game;
 
 import fr.catcore.deacoudre.DeACoudre;
-import fr.catcore.deacoudre.game.DeACoudreActive.WinResult;
 import fr.catcore.deacoudre.game.map.DeACoudreMap;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundEvent;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Formatting;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.game.GameWorld;
 import xyz.nucleoid.plasmid.game.event.*;
 import xyz.nucleoid.plasmid.game.player.JoinResult;
@@ -11,20 +23,6 @@ import xyz.nucleoid.plasmid.game.rule.GameRule;
 import xyz.nucleoid.plasmid.game.rule.RuleResult;
 import xyz.nucleoid.plasmid.util.BlockBounds;
 import xyz.nucleoid.plasmid.util.PlayerRef;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -189,15 +187,11 @@ public class DeACoudreActive {
     }
 
     private void broadcastMessage(Text message) {
-        for (ServerPlayerEntity player : this.gameWorld.getPlayers()) {
-            player.sendMessage(message, false);
-        };
+        this.gameWorld.getPlayerSet().sendMessage(message);
     }
 
     private void broadcastSound(SoundEvent sound) {
-        for (ServerPlayerEntity player : this.gameWorld.getPlayers()) {
-            player.playSound(sound, SoundCategory.PLAYERS, 1.0F, 1.0F);
-        };
+        this.gameWorld.getPlayerSet().sendSound(sound);
     }
 
     private void spawnSpectator(ServerPlayerEntity player) {
