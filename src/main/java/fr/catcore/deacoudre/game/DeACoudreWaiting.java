@@ -8,14 +8,12 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.game.GameOpenContext;
+import xyz.nucleoid.plasmid.game.GameWaitingLobby;
 import xyz.nucleoid.plasmid.game.GameWorld;
 import xyz.nucleoid.plasmid.game.StartResult;
-import xyz.nucleoid.plasmid.game.config.PlayerConfig;
-import xyz.nucleoid.plasmid.game.event.OfferPlayerListener;
 import xyz.nucleoid.plasmid.game.event.PlayerAddListener;
 import xyz.nucleoid.plasmid.game.event.PlayerDeathListener;
 import xyz.nucleoid.plasmid.game.event.RequestStartListener;
-import xyz.nucleoid.plasmid.game.player.JoinResult;
 import xyz.nucleoid.plasmid.game.rule.GameRule;
 import xyz.nucleoid.plasmid.game.rule.RuleResult;
 import xyz.nucleoid.plasmid.world.bubble.BubbleWorldConfig;
@@ -48,7 +46,7 @@ public class DeACoudreWaiting {
             return gameOpenContext.openWorld(worldConfig).thenApply(gameWorld -> {
                 DeACoudreWaiting waiting = new DeACoudreWaiting(gameWorld, map, gameOpenContext.getConfig());
 
-                gameWorld.openGame(builder -> {
+                return GameWaitingLobby.open(gameWorld, gameOpenContext.getConfig().playerConfig, builder -> {
                     builder.setRule(GameRule.CRAFTING, RuleResult.DENY);
                     builder.setRule(GameRule.PORTALS, RuleResult.DENY);
                     builder.setRule(GameRule.PVP, RuleResult.DENY);
@@ -57,34 +55,16 @@ public class DeACoudreWaiting {
                     builder.setRule(GameRule.FALL_DAMAGE, RuleResult.DENY);
 
                     builder.on(RequestStartListener.EVENT, waiting::requestStart);
-                    builder.on(OfferPlayerListener.EVENT, waiting::offerPlayer);
-
 
                     builder.on(PlayerAddListener.EVENT, waiting::addPlayer);
                     builder.on(PlayerDeathListener.EVENT, waiting::onPlayerDeath);
                 });
-
-                return gameWorld;
             });
         });
     }
 
-    private JoinResult offerPlayer(ServerPlayerEntity player) {
-        if (this.gameWorld.getPlayerCount() >= this.config.playerConfig.getMaxPlayers()) {
-            return JoinResult.gameFull();
-        }
-
-        return JoinResult.ok();
-    }
-
     private StartResult requestStart() {
-        PlayerConfig playerConfig = this.config.playerConfig;
-        if (this.gameWorld.getPlayerCount() < playerConfig.getMinPlayers()) {
-            return StartResult.NOT_ENOUGH_PLAYERS;
-        }
-
         DeACoudreActive.open(this.gameWorld, this.map, this.config);
-
         return StartResult.OK;
     }
 
