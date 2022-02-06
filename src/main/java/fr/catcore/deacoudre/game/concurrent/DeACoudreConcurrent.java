@@ -75,6 +75,9 @@ public class DeACoudreConcurrent {
             game.deny(GameRuleType.BLOCK_DROPS);
             game.allow(GameRuleType.FALL_DAMAGE);
             game.deny(GameRuleType.HUNGER);
+            game.deny(GameRuleType.FIRE_TICK);
+            game.deny(GameRuleType.FLUID_FLOW);
+            game.deny(GameRuleType.ICE_MELT);
 
             game.listen(GameActivityEvents.ENABLE, active::onOpen);
             game.listen(GameActivityEvents.TICK, active::tick);

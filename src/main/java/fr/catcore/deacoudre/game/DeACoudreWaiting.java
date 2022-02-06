@@ -11,6 +11,7 @@ import net.minecraft.text.LiteralText;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
+import net.minecraft.world.dimension.DimensionType;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.MapTemplateSerializer;
@@ -58,7 +59,8 @@ public class DeACoudreWaiting {
         );
 
         var worldConfig = new RuntimeWorldConfig()
-                .setGenerator(map.asGenerator(context.server()));
+                .setGenerator(map.asGenerator(context.server()))
+                .setDimensionType(DimensionType.OVERWORLD_REGISTRY_KEY);
 //
 //        BubbleWorldConfig worldConfig = new BubbleWorldConfig()
 //                .setGenerator(map.asGenerator(context.getServer()))
@@ -76,6 +78,9 @@ public class DeACoudreWaiting {
             game.deny(GameRuleType.BLOCK_DROPS);
             game.deny(GameRuleType.HUNGER);
             game.deny(GameRuleType.FALL_DAMAGE);
+            game.deny(GameRuleType.FIRE_TICK);
+            game.deny(GameRuleType.FLUID_FLOW);
+            game.deny(GameRuleType.ICE_MELT);
 
             game.listen(GameActivityEvents.REQUEST_START, waiting::requestStart);
 
@@ -99,7 +104,7 @@ public class DeACoudreWaiting {
             return offer.reject(new LiteralText("No spawn defined on map!"));
         }
 
-        return offer.accept(this.world, Vec3d.ofCenter(spawn))
+        return offer.accept(this.world, this.spawnLogic.getSpawnPos())
                 .and(() -> {
                     var player = offer.player();
                     this.spawnLogic.spawnPlayer(player, GameMode.ADVENTURE);

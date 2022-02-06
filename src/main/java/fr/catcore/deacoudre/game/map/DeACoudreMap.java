@@ -79,6 +79,7 @@ public class DeACoudreMap {
     }
 
     public ChunkGenerator asGenerator(MinecraftServer server) {
-        return new TemplateChunkGenerator(server, this.template);
+//        return new TemplateChunkGenerator(server, this.template);
+        return new DeACoudreChunkGenerator(server, server.getOverworld().getRandom().nextLong());
     }
 }
