@@ -5,6 +5,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.StructureWorldAccess;
+import net.minecraft.world.chunk.Chunk;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.map_templates.MapTemplate;
 
@@ -36,22 +38,23 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
     }
 
     public enum MapShape {
-        square((config, builder, mutablePosWater, mutablePosBorder) -> {
+        square((config, builder, mutablePosWater, mutablePosBorder, cornerRight, cornerLeft, y) -> {
             BlockBounds blockBounds = null;
-            for (int z = 5; z <= 5 + (2 * config.radius); z++) {
-                for (int x = -config.radius; x <= config.radius; x++) {
-                    mutablePosBorder.set(x, 1, z);
-                    builder.setBlockState(mutablePosBorder, config.poolOutlineBlock);
-                }
+            var bounds = BlockBounds.of(cornerRight, cornerLeft);
+
+            for (var pos : bounds) {
+                mutablePosBorder.set(pos.getX(), y - 1, pos.getZ());
+                builder.setBlockState(mutablePosBorder, config.poolOutlineBlock, 0);
             }
+
             for (int z = 5; z <= 5 + (2 * config.radius); z++) {
                 for (int x = -config.radius; x <= config.radius; x++) {
-                    mutablePosBorder.set(x, 2, z);
-                    mutablePosWater.set(x, 2, z);
+                    mutablePosBorder.set(x, y, z);
+                    mutablePosWater.set(x, y, z);
                     if (z == 5 || z == 5 + (2 * config.radius) || x == -config.radius || x == config.radius)
-                        builder.setBlockState(mutablePosBorder, config.poolOutlineBlock);
+                        builder.setBlockState(mutablePosBorder, config.poolOutlineBlock, 0);
                     else {
-                        builder.setBlockState(mutablePosWater, Blocks.WATER.getDefaultState());
+                        builder.setBlockState(mutablePosWater, Blocks.WATER.getDefaultState(), 0);
                         blockBounds = blockBounds != null ?
                                 blockBounds.union(BlockBounds.ofBlock(mutablePosWater))
                                 : BlockBounds.ofBlock(mutablePosWater);
@@ -61,7 +64,7 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
 
             return blockBounds;
         }),
-        circle((config, builder, mutablePosWater, mutablePosBorder) -> {
+        circle((config, builder, mutablePosWater, mutablePosBorder, cornerRight, cornerLeft, y) -> {
             BlockBounds blockBounds = null;
             int radius2 = config.radius * config.radius;
             int outlineRadius2 = (config.radius - 1) * (config.radius - 1);
@@ -69,25 +72,25 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
                 for (int x = -config.radius; x <= config.radius; x++) {
                     int distance2 = x * x + z * z;
 
-                    mutablePosBorder.set(x, 1, getRightZ(config, z));
-                    builder.setBlockState(mutablePosBorder, config.poolOutlineBlock);
+                    mutablePosBorder.set(x, y, getRightZ(config, z));
+                    builder.setBlockState(mutablePosBorder, config.poolOutlineBlock, 0);
 
                     if (distance2 <= outlineRadius2) {
-                        mutablePosWater.set(x, 2, getRightZ(config, z));
-                        builder.setBlockState(mutablePosWater, Blocks.WATER.getDefaultState());
+                        mutablePosWater.set(x, y, getRightZ(config, z));
+                        builder.setBlockState(mutablePosWater, Blocks.WATER.getDefaultState(), 0);
                         blockBounds = blockBounds != null ?
                                 blockBounds.union(BlockBounds.ofBlock(mutablePosWater))
                                 : BlockBounds.ofBlock(mutablePosWater);
                     } else {
-                        mutablePosBorder.set(x, 2, getRightZ(config, z));
-                        builder.setBlockState(mutablePosBorder, config.poolOutlineBlock);
+                        mutablePosBorder.set(x, y, getRightZ(config, z));
+                        builder.setBlockState(mutablePosBorder, config.poolOutlineBlock, 0);
                     }
                 }
             }
 
             return blockBounds;
         }),
-        donut((config, builder, mutablePosWater, mutablePosBorder) -> {
+        donut((config, builder, mutablePosWater, mutablePosBorder, cornerRight, cornerLeft, y) -> {
             BlockBounds blockBounds = null;
             int radius2 = config.radius * config.radius;
             int outlineRadius2 = (config.radius - 1) * (config.radius - 1);
@@ -96,18 +99,18 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
                 for (int x = -config.radius; x <= config.radius; x++) {
                     int distance2 = x * x + z * z;
 
-                    mutablePosBorder.set(x, 1, getRightZ(config, z));
-                    builder.setBlockState(mutablePosBorder, config.poolOutlineBlock);
+                    mutablePosBorder.set(x, y, getRightZ(config, z));
+                    builder.setBlockState(mutablePosBorder, config.poolOutlineBlock, 0);
 
                     if (distance2 <= outlineRadius2 && distance2 > inlineRadius) {
-                        mutablePosWater.set(x, 2, getRightZ(config, z));
-                        builder.setBlockState(mutablePosWater, Blocks.WATER.getDefaultState());
+                        mutablePosWater.set(x, y, getRightZ(config, z));
+                        builder.setBlockState(mutablePosWater, Blocks.WATER.getDefaultState(), 0);
                         blockBounds = blockBounds != null ?
                                 blockBounds.union(BlockBounds.ofBlock(mutablePosWater))
                                 : BlockBounds.ofBlock(mutablePosWater);
                     } else {
-                        mutablePosBorder.set(x, 2, getRightZ(config, z));
-                        builder.setBlockState(mutablePosBorder, config.poolOutlineBlock);
+                        mutablePosBorder.set(x, y, getRightZ(config, z));
+                        builder.setBlockState(mutablePosBorder, config.poolOutlineBlock, 0);
                     }
                 }
             }
@@ -121,10 +124,10 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
             this.generatePool = generatePool;
         }
 
-        public BlockBounds generatePool(DeACoudreMapConfig config, MapTemplate builder) {
+        public BlockBounds generatePool(DeACoudreMapConfig config, StructureWorldAccess world, BlockPos cornerRight, BlockPos cornerLeft, int y) {
             BlockPos.Mutable mutablePosWater = new BlockPos.Mutable();
             BlockPos.Mutable mutablePosBorder = new BlockPos.Mutable();
-            return this.generatePool.generatePool(config, builder, mutablePosWater, mutablePosBorder);
+            return this.generatePool.generatePool(config, world, mutablePosWater, mutablePosBorder, cornerRight, cornerLeft,  y);
         }
 
         private static int getRightZ(DeACoudreMapConfig config, int z) {
@@ -133,7 +136,7 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
 
         private interface GeneratePool {
 
-            BlockBounds generatePool(DeACoudreMapConfig config, MapTemplate builder, BlockPos.Mutable mutablePosWater, BlockPos.Mutable mutablePosBorder);
+            BlockBounds generatePool(DeACoudreMapConfig config, StructureWorldAccess world, BlockPos.Mutable mutablePosWater, BlockPos.Mutable mutablePosBorder, BlockPos cornerRight, BlockPos cornerLeft, int y);
         }
     }
 }

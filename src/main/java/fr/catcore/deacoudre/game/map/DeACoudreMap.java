@@ -17,29 +17,36 @@ public class DeACoudreMap {
     private BlockBounds jumpingPlatform = null;
     private BlockBounds jumpingArea = null;
 
-    public DeACoudreMap(MapTemplate template) {
+    private DeACoudreMapConfig config;
+
+    public DeACoudreMap(MapTemplate template, DeACoudreMapConfig config) {
         this.template = template;
+        this.config = config;
     }
 
-    public static DeACoudreMap fromTemplate(MapTemplate template) {
-        DeACoudreMap map = new DeACoudreMap(template);
+//    public static DeACoudreMap fromTemplate(MapTemplate template) {
+//        DeACoudreMap map = new DeACoudreMap(template);
+//
+//        MapTemplateMetadata templateMetadata = template.getMetadata();
+//
+//        BlockBounds poolBounds = templateMetadata.getFirstRegionBounds("pool");
+//        map.setPool(poolBounds);
+//
+//        BlockBounds jumpingPlatform = templateMetadata.getFirstRegionBounds("jumping_platform");
+//        map.setJumpingPlatform(jumpingPlatform);
+//
+//        BlockBounds jumpingArea = templateMetadata.getFirstRegionBounds("jumping_area");
+//        map.setJumpingArea(jumpingArea);
+//
+//        Vec3d spawn = templateMetadata.getFirstRegionBounds("spawn").center();
+//
+//        map.setSpawn(new BlockPos(spawn));
+//
+//        return map;
+//    }
 
-        MapTemplateMetadata templateMetadata = template.getMetadata();
-
-        BlockBounds poolBounds = templateMetadata.getFirstRegionBounds("pool");
-        map.setPool(poolBounds);
-
-        BlockBounds jumpingPlatform = templateMetadata.getFirstRegionBounds("jumping_platform");
-        map.setJumpingPlatform(jumpingPlatform);
-
-        BlockBounds jumpingArea = templateMetadata.getFirstRegionBounds("jumping_area");
-        map.setJumpingArea(jumpingArea);
-
-        Vec3d spawn = templateMetadata.getFirstRegionBounds("spawn").center();
-
-        map.setSpawn(new BlockPos(spawn));
-
-        return map;
+    public DeACoudreMapConfig getConfig() {
+        return config;
     }
 
     public void setSpawn(BlockPos spawn) {
@@ -80,6 +87,6 @@ public class DeACoudreMap {
 
     public ChunkGenerator asGenerator(MinecraftServer server) {
 //        return new TemplateChunkGenerator(server, this.template);
-        return new DeACoudreChunkGenerator(server, server.getOverworld().getRandom().nextLong());
+        return new DeACoudreChunkGenerator(server, server.getOverworld().getRandom().nextLong(), this);
     }
 }

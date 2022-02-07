@@ -30,7 +30,7 @@ public class DeACoudreMapGenerator {
 
     public DeACoudreMap build() {
         MapTemplate template = MapTemplate.createEmpty();
-        DeACoudreMap map = new DeACoudreMap(template);
+        DeACoudreMap map = new DeACoudreMap(template, config);
 
         this.buildSpawn(template);
         this.buildPool(map, template);
@@ -68,7 +68,7 @@ public class DeACoudreMapGenerator {
     }
 
     private void buildPool(DeACoudreMap map, MapTemplate builder) {
-        map.setPool(this.shape.generatePool(this.config, builder));
+//        map.setPool(this.shape.generatePool(this.config, builder));
     }
 
     private void buildSequentialJumpingPlatform(DeACoudreMap map, MapTemplate builder) {

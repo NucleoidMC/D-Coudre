@@ -49,23 +49,19 @@ public class DeACoudreWaiting {
                     return generator.build();
                 },
                 identifier -> {
-                    try {
-                        MapTemplate template = MapTemplateSerializer.loadFromResource(context.server(), identifier);
-                        return DeACoudreMap.fromTemplate(template);
-                    } catch (IOException e) {
-                        return DeACoudreMap.fromTemplate(MapTemplate.createEmpty());
-                    }
+//                    try {
+//                        MapTemplate template = MapTemplateSerializer.loadFromResource(context.server(), identifier);
+//                        return DeACoudreMap.fromTemplate(template);
+//                    } catch (IOException e) {
+//                        return DeACoudreMap.fromTemplate(MapTemplate.createEmpty());
+//                    }
+                    return null;
                 }
         );
 
         var worldConfig = new RuntimeWorldConfig()
                 .setGenerator(map.asGenerator(context.server()))
                 .setDimensionType(DimensionType.OVERWORLD_REGISTRY_KEY);
-//
-//        BubbleWorldConfig worldConfig = new BubbleWorldConfig()
-//                .setGenerator(map.asGenerator(context.getServer()))
-//                .setDefaultGameMode(GameMode.SPECTATOR)
-//                .setSpawnAt(new Vec3d(map.getSpawn().getX(),map.getSpawn().getY(),map.getSpawn().getZ()));
 
         return context.openWithWorld(worldConfig, (game, world) -> {
             GameWaitingLobby.addTo(game, config.playerConfig());

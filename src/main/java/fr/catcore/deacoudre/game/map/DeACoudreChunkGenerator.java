@@ -22,6 +22,7 @@ import net.minecraft.world.gen.chunk.Blender;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
 import net.minecraft.world.gen.chunk.VerticalBlockSample;
+import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.plasmid.game.world.generator.GameChunkGenerator;
 
 import java.util.concurrent.CompletableFuture;
@@ -30,11 +31,13 @@ import java.util.concurrent.Executor;
 public class DeACoudreChunkGenerator extends GameChunkGenerator {
 
     private final ChunkGenerator chunkGenerator;
+    private final DeACoudreMap map;
 
-    protected DeACoudreChunkGenerator(MinecraftServer server, long seed) {
+    protected DeACoudreChunkGenerator(MinecraftServer server, long seed, DeACoudreMap map) {
         super(server);
 
-        this.chunkGenerator = GeneratorOptions.createGenerator(server.getRegistryManager(), seed, ChunkGeneratorSettings.OVERWORLD);;
+        this.chunkGenerator = GeneratorOptions.createGenerator(server.getRegistryManager(), seed, ChunkGeneratorSettings.OVERWORLD);
+        this.map = map;
     }
 
     @Override
@@ -52,16 +55,6 @@ public class DeACoudreChunkGenerator extends GameChunkGenerator {
         this.chunkGenerator.buildSurface(region, structures, chunk);
     }
 
-//    @Override
-//    public void setStructureStarts(DynamicRegistryManager registryManager, StructureAccessor accessor, Chunk chunk, StructureManager structureManager, long worldSeed) {
-//        this.chunkGenerator.setStructureStarts(registryManager, accessor, chunk, structureManager, worldSeed);
-//    }
-//
-//    @Override
-//    public void addStructureReferences(StructureWorldAccess world, StructureAccessor accessor, Chunk chunk) {
-//        this.chunkGenerator.addStructureReferences(world, accessor, chunk);
-//    }
-
     @Override
     public CompletableFuture<Chunk> populateNoise(Executor executor, Blender blender, StructureAccessor structureAccessor, Chunk chunk) {
         return this.chunkGenerator.populateNoise(executor, blender, structureAccessor, chunk);
@@ -74,25 +67,70 @@ public class DeACoudreChunkGenerator extends GameChunkGenerator {
         var chunkPos = chunk.getPos();
 
         if (chunkPos.x == 0 && chunkPos.z == 0) {
-            var startPos = chunkPos.getStartPos();
+            generateSpawnPlatform(world, chunk);
+        } else if (chunkPos.x == 2 && chunkPos.z == 0) {
+            generatePool(world, chunk);
+        }
+    }
 
-            int y = 0;
+    private void generatePool(StructureWorldAccess world, Chunk chunk) {
+        var config = this.map.getConfig();
+        var radius = config.radius();
 
-            for (int x = 0; x < 16; x++) {
-                for (int z = 0; z < 16; z++) {
-                    y += this.getHeight(startPos.getX() + x, startPos.getZ() + z, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, world);
-                }
+        var centerZ = chunk.getPos().getCenterZ();
+        var bottomX = chunk.getPos().getStartX();
+        var centerBottomPos = new BlockPos(bottomX, 0, centerZ);
+
+        var cornerRight = centerBottomPos.add(0, 0, radius);
+        var cornerLeft = centerBottomPos.add(radius*2 + 1, 0, -radius);
+
+        int y = 0;
+        int times = 0;
+
+        var bounds = BlockBounds.of(cornerLeft, cornerRight);
+
+        for (var pos : bounds) {
+            y += this.getHeight(pos.getX(), pos.getZ(), Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, world);
+            times++;
+        }
+
+//        for (int x = cornerLeft.getX(); x < cornerRight.getX(); x++) {
+//            for (int z = cornerLeft.getZ(); z < cornerRight.getZ(); z++) {
+//                y += this.getHeight(x, z, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, world);
+//                times++;
+//            }
+//        }
+
+        int averageY = y / times;
+
+        this.map.setPool(DeACoudreMapConfig.MapShape.valueOf(config.shape()).generatePool(
+                config,
+                world,
+                cornerRight,
+                cornerLeft,
+                averageY
+        ));
+    }
+
+    private void generateSpawnPlatform(StructureWorldAccess world, Chunk chunk) {
+        var startPos = chunk.getPos().getStartPos();
+
+        int y = 0;
+
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                y += this.getHeight(startPos.getX() + x, startPos.getZ() + z, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, world);
             }
+        }
 
-            int averageY = y / (16*16);
+        int averageY = y / (16*16);
 
-            for (int x = 0; x < 16; x++) {
-                for (int z = 0; z < 16; z++) {
-                    world.setBlockState(new BlockPos(x, averageY - 1, z), Blocks.SPRUCE_PLANKS.getDefaultState(), 0);
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                world.setBlockState(new BlockPos(x, averageY - 1, z), Blocks.SPRUCE_PLANKS.getDefaultState(), 0);
 
-                    for (int airY = averageY; airY < 300; airY++) {
-                        world.setBlockState(new BlockPos(x, airY, z), Blocks.AIR.getDefaultState(), 0);
-                    }
+                for (int airY = averageY; airY < 300; airY++) {
+                    world.setBlockState(new BlockPos(x, airY, z), Blocks.AIR.getDefaultState(), 0);
                 }
             }
         }
