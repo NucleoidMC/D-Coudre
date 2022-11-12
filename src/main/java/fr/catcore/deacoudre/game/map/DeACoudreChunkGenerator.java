@@ -4,6 +4,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.structure.StructureManager;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.util.registry.DynamicRegistryManager;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.ChunkRegion;
@@ -32,6 +33,10 @@ public class DeACoudreChunkGenerator extends GameChunkGenerator {
 
     private final ChunkGenerator chunkGenerator;
     private final DeACoudreMap map;
+
+    private int averageY = 70;
+    private BlockPos cornerRight = null;
+    private BlockPos cornerLeft = null;
 
     protected DeACoudreChunkGenerator(MinecraftServer server, long seed, DeACoudreMap map) {
         super(server);
@@ -68,48 +73,31 @@ public class DeACoudreChunkGenerator extends GameChunkGenerator {
 
         if (chunkPos.x == 0 && chunkPos.z == 0) {
             generateSpawnPlatform(world, chunk);
-        } else if (chunkPos.x == 2 && chunkPos.z == 0) {
-            generatePool(world, chunk);
-        }
+        } else generatePool(world, chunk);
     }
 
     private void generatePool(StructureWorldAccess world, Chunk chunk) {
         var config = this.map.getConfig();
-        var radius = config.radius();
 
-        var centerZ = chunk.getPos().getCenterZ();
-        var bottomX = chunk.getPos().getStartX();
-        var centerBottomPos = new BlockPos(bottomX, 0, centerZ);
-
-        var cornerRight = centerBottomPos.add(0, 0, radius);
-        var cornerLeft = centerBottomPos.add(radius*2 + 1, 0, -radius);
-
-        int y = 0;
-        int times = 0;
-
-        var bounds = BlockBounds.of(cornerLeft, cornerRight);
-
-        for (var pos : bounds) {
-            y += this.getHeight(pos.getX(), pos.getZ(), Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, world);
-            times++;
+        if (this.cornerLeft != null && this.cornerRight != null) {
+            if (this.map.getPool() == null) {
+                this.map.setPool(DeACoudreMapConfig.MapShape.valueOf(config.shape()).generatePool(
+                        config,
+                        world,
+                        cornerRight,
+                        cornerLeft,
+                        averageY - 1
+                ));
+            } else {
+                DeACoudreMapConfig.MapShape.valueOf(config.shape()).generatePool(
+                        config,
+                        world,
+                        cornerRight,
+                        cornerLeft,
+                        averageY - 1
+                );
+            }
         }
-
-//        for (int x = cornerLeft.getX(); x < cornerRight.getX(); x++) {
-//            for (int z = cornerLeft.getZ(); z < cornerRight.getZ(); z++) {
-//                y += this.getHeight(x, z, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, world);
-//                times++;
-//            }
-//        }
-
-        int averageY = y / times;
-
-        this.map.setPool(DeACoudreMapConfig.MapShape.valueOf(config.shape()).generatePool(
-                config,
-                world,
-                cornerRight,
-                cornerLeft,
-                averageY
-        ));
     }
 
     private void generateSpawnPlatform(StructureWorldAccess world, Chunk chunk) {
@@ -123,7 +111,7 @@ public class DeACoudreChunkGenerator extends GameChunkGenerator {
             }
         }
 
-        int averageY = y / (16*16);
+        this.averageY = y / (16*16);
 
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
@@ -134,6 +122,16 @@ public class DeACoudreChunkGenerator extends GameChunkGenerator {
                 }
             }
         }
+
+        var config = this.map.getConfig();
+        var radius = config.radius();
+
+        var centerZ = ChunkSectionPos.getOffsetPos(0, 8);
+        var bottomX = ChunkSectionPos.getBlockCoord(3);
+        var centerBottomPos = new BlockPos(bottomX, 0, centerZ);
+
+        this.cornerRight = centerBottomPos.add(0, 0, radius);
+        this.cornerLeft = centerBottomPos.add(radius*2 + 1, 0, -radius);
     }
 
     @Override
