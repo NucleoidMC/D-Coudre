@@ -1,9 +1,10 @@
 package fr.catcore.deacoudre.game.sequential;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.ScoreboardCriterion;
+import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.scoreboard.ScoreboardPlayerScore;
 import net.minecraft.scoreboard.ServerScoreboard;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -38,10 +39,11 @@ public class DeACoudreSequentialScoreboard implements AutoCloseable {
         ScoreboardObjective scoreboardObjective2 = new ScoreboardObjective(
                 scoreboard, "de_a_coudre_life",
                 ScoreboardCriterion.DUMMY, title,
-                ScoreboardCriterion.RenderType.INTEGER);
+                ScoreboardCriterion.RenderType.INTEGER,
+                false, null);
         scoreboard.addScoreboardObjective(scoreboardObjective2);
 
-        scoreboard.setObjectiveSlot(0, scoreboardObjective2);
+        scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.LIST, scoreboardObjective2);
 
         return new DeACoudreSequentialScoreboard(game, sidebar, scoreboardObjective2);
     }
@@ -82,15 +84,16 @@ public class DeACoudreSequentialScoreboard implements AutoCloseable {
         for (Object2IntMap.Entry<ServerPlayerEntity> entry : this.game.lives()) {
             if (entry.getKey() == null) continue;
             ServerPlayerEntity playerEntity = entry.getKey();
-            scoreboard.getPlayerScore(playerEntity.getName().getString(), lifeObjective)
+            ScoreHolder scoreHolder = ScoreHolder.fromProfile(playerEntity.getGameProfile());
+            scoreboard.getOrCreateScore(scoreHolder, lifeObjective)
                 .setScore(entry.getIntValue());
         }
     }
 
     private static void clear(ServerScoreboard scoreboard, ScoreboardObjective objective) {
-        Collection<ScoreboardPlayerScore> existing = scoreboard.getAllPlayerScores(objective);
-        for (ScoreboardPlayerScore score : existing) {
-            scoreboard.resetPlayerScore(score.getPlayerName(), objective);
+        Collection<ScoreHolder> existing = scoreboard.getKnownScoreHolders();
+        for (ScoreHolder scoreHolder : existing) {
+            scoreboard.removeScore(scoreHolder, objective);
         }
     }
 
