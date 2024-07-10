@@ -16,7 +16,7 @@ public class BlockBoundsBuilder implements Consumer<BlockPos> {
 
     @Override
     public void accept(BlockPos pos) {
-        var addedBounds = BlockBounds.ofBlock(pos);
+        var addedBounds = BlockBounds.ofBlock(pos.toImmutable());
         this.bounds = this.bounds == null ? addedBounds : this.bounds.union(addedBounds);
 
         this.delegate.accept(pos);
