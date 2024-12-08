@@ -9,8 +9,8 @@ import net.minecraft.scoreboard.ServerScoreboard;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import xyz.nucleoid.plasmid.game.common.GlobalWidgets;
-import xyz.nucleoid.plasmid.game.common.widget.SidebarWidget;
+import xyz.nucleoid.plasmid.api.game.common.GlobalWidgets;
+import xyz.nucleoid.plasmid.api.game.common.widget.SidebarWidget;
 
 import java.util.Collection;
 
@@ -36,12 +36,10 @@ public class DeACoudreSequentialScoreboard implements AutoCloseable {
         Text title = Text.literal("Dé à Coudre").formatted(Formatting.BLUE, Formatting.BOLD);
         SidebarWidget sidebar = widgets.addSidebar(title);
 
-        ScoreboardObjective scoreboardObjective2 = new ScoreboardObjective(
-                scoreboard, "de_a_coudre_life",
+        var scoreboardObjective2 = scoreboard.addObjective("de_a_coudre_life",
                 ScoreboardCriterion.DUMMY, title,
                 ScoreboardCriterion.RenderType.INTEGER,
                 false, null);
-        scoreboard.addScoreboardObjective(scoreboardObjective2);
 
         scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.LIST, scoreboardObjective2);
 

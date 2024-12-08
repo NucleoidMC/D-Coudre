@@ -14,13 +14,15 @@ import net.minecraft.world.GameMode;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.MapTemplateSerializer;
-import xyz.nucleoid.plasmid.game.*;
-import xyz.nucleoid.plasmid.game.common.GameWaitingLobby;
-import xyz.nucleoid.plasmid.game.event.GameActivityEvents;
-import xyz.nucleoid.plasmid.game.event.GamePlayerEvents;
-import xyz.nucleoid.plasmid.game.player.PlayerOffer;
-import xyz.nucleoid.plasmid.game.player.PlayerOfferResult;
-import xyz.nucleoid.plasmid.game.rule.GameRuleType;
+import xyz.nucleoid.plasmid.api.game.*;
+import xyz.nucleoid.plasmid.api.game.common.GameWaitingLobby;
+import xyz.nucleoid.plasmid.api.game.event.GameActivityEvents;
+import xyz.nucleoid.plasmid.api.game.event.GamePlayerEvents;
+import xyz.nucleoid.plasmid.api.game.player.JoinAcceptor;
+import xyz.nucleoid.plasmid.api.game.player.JoinAcceptorResult;
+import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
+import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
+import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 
 import java.io.IOException;
@@ -79,7 +81,8 @@ public class DeACoudreWaiting {
 
             game.listen(GameActivityEvents.REQUEST_START, waiting::requestStart);
 
-            game.listen(GamePlayerEvents.OFFER, waiting::offerPlayer);
+            game.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
+            game.listen(GamePlayerEvents.ACCEPT, waiting::acceptPlayer);
             game.listen(PlayerDeathEvent.EVENT, waiting::onPlayerDeath);
         });
     }
@@ -93,21 +96,20 @@ public class DeACoudreWaiting {
         return GameResult.ok();
     }
 
-    private PlayerOfferResult offerPlayer(PlayerOffer offer) {
+    private JoinAcceptorResult acceptPlayer(JoinAcceptor offer) {
         var spawn = this.map.getSpawn();
         if (spawn == null) {
-            return offer.reject(Text.literal("No spawn defined on map!"));
+            return offer.pass();
         }
 
-        return offer.accept(this.world, Vec3d.ofCenter(spawn))
-                .and(() -> {
-                    var player = offer.player();
+        return offer.teleport(this.world, Vec3d.ofCenter(spawn))
+                .thenRunForEach((player) -> {
                     this.spawnLogic.spawnPlayer(player, GameMode.ADVENTURE);
                 });
     }
 
-    private ActionResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
+    private EventResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
         this.spawnLogic.spawnPlayer(player, GameMode.ADVENTURE);
-        return ActionResult.FAIL;
+        return EventResult.DENY;
     }
 }

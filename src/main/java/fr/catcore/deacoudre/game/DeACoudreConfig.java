@@ -2,21 +2,22 @@ package fr.catcore.deacoudre.game;
 
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import fr.catcore.deacoudre.game.map.DeACoudreMapConfig;
 import net.minecraft.util.Identifier;
-import xyz.nucleoid.plasmid.game.common.config.PlayerConfig;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
 
 public record DeACoudreConfig(
         Either<DeACoudreMapConfig, Identifier> map,
-        PlayerConfig playerConfig, int life, boolean concurrent) {
+        WaitingLobbyConfig playerConfig, int life, boolean concurrent) {
 
-    public static final Codec<DeACoudreConfig> CODEC = RecordCodecBuilder.create(instance -> {
+    public static final MapCodec<DeACoudreConfig> CODEC = RecordCodecBuilder.mapCodec(instance -> {
         return instance.group(
                 Codec.either(DeACoudreMapConfig.CODEC, Identifier.CODEC).fieldOf("map").forGetter(config -> config.map),
-                PlayerConfig.CODEC.fieldOf("players").forGetter(config -> config.playerConfig),
+                WaitingLobbyConfig.CODEC.fieldOf("players").forGetter(config -> config.playerConfig),
                 Codec.INT.optionalFieldOf("life", 3).forGetter(config -> config.life),
                 Codec.BOOL.optionalFieldOf("concurrent", false).forGetter(config -> config.concurrent)
         ).apply(instance, DeACoudreConfig::new);

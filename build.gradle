@@ -25,7 +25,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // Plasmid
-    modImplementation "xyz.nucleoid:plasmid:0.5.102-SNAPSHOT+1.20.4"
+    modImplementation "xyz.nucleoid:plasmid:0.6.2+1.21.4"
 
 //    modRuntime ("com.github.jellysquid3:sodium-fabric:b9c2ad3c38b16275cf2f1a81dcfb2fee1563905b")
 //    modRuntime ("com.github.jellysquid3:phosphor-fabric:0749029a498e8f6574643285bae7aecb2eda76b8")
@@ -50,7 +50,7 @@ tasks.withType(JavaCompile).configureEach {
     // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
     // If Javadoc is generated, this must be specified in that task too.
     it.options.encoding = "UTF-8"
-    it.options.release = 17
+    it.options.release = 21
 }
 
 java {
