@@ -2,14 +2,14 @@ package fr.catcore.deacoudre.game.map;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.map_templates.MapTemplate;
 
 import java.util.function.Consumer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 public record DeACoudreMapConfig(int radius, int height, String shape, int inCircleRadius,
                                  BlockState spawnBlock,
@@ -40,7 +40,7 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
 
     public enum MapShape {
         square((config, setWater, setBorder) -> {
-            var pos = new BlockPos.Mutable();
+            var pos = new BlockPos.MutableBlockPos();
             for (int z = 5; z <= 5 + (2 * config.radius); z++) {
                 for (int x = -config.radius; x <= config.radius; x++) {
                     pos.set(x, 1, z);
@@ -59,7 +59,7 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
             }
         }),
         circle((config, setWater, setBorder) -> {
-            var pos = new BlockPos.Mutable();
+            var pos = new BlockPos.MutableBlockPos();
             int radius2 = config.radius * config.radius;
             int outlineRadius2 = (config.radius - 1) * (config.radius - 1);
             for (int z = -config.radius; z <= config.radius; z++) {
@@ -80,7 +80,7 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
             }
         }),
         donut((config, setWater, setBorder) -> {
-            var pos = new BlockPos.Mutable();
+            var pos = new BlockPos.MutableBlockPos();
             int radius2 = config.radius * config.radius;
             int outlineRadius2 = (config.radius - 1) * (config.radius - 1);
             int inlineRadius = (config.inCircleRadius - 1) * (config.inCircleRadius - 1);
@@ -109,7 +109,7 @@ public record DeACoudreMapConfig(int radius, int height, String shape, int inCir
         }
 
         public BlockBounds generatePool(DeACoudreMapConfig config, MapTemplate builder) {
-            var setWater = new BlockBoundsBuilder(pos -> builder.setBlockState(pos, Blocks.WATER.getDefaultState()));
+            var setWater = new BlockBoundsBuilder(pos -> builder.setBlockState(pos, Blocks.WATER.defaultBlockState()));
             Consumer<BlockPos> setBorder = pos -> builder.setBlockState(pos, config.poolOutlineBlock);
 
             this.generator.generatePool(config, setWater, setBorder);

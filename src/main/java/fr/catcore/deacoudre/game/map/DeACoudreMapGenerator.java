@@ -1,7 +1,7 @@
 package fr.catcore.deacoudre.game.map;
 
-import net.minecraft.block.Blocks;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.map_templates.MapTemplate;
 
@@ -42,7 +42,7 @@ public class DeACoudreMapGenerator {
     }
 
     private void buildSpawn(MapTemplate builder) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
         for (int x = -4; x <= 4; x++) {
             for (int z = -4; z <= 4; z++) {
@@ -56,11 +56,11 @@ public class DeACoudreMapGenerator {
                 for (int y = 3; y <= 6; y++) {
                     if (x == -4 || x == 4 || z == -4 || z == 4) {
                         mutable.set(x, y, z);
-                        builder.setBlockState(mutable, Blocks.BARRIER.getDefaultState());
+                        builder.setBlockState(mutable, Blocks.BARRIER.defaultBlockState());
                     }
                     if (y == 6) {
                         mutable.set(x, y, z);
-                        builder.setBlockState(mutable, Blocks.BARRIER.getDefaultState());
+                        builder.setBlockState(mutable, Blocks.BARRIER.defaultBlockState());
                     }
                 }
             }
@@ -72,8 +72,8 @@ public class DeACoudreMapGenerator {
     }
 
     private void buildSequentialJumpingPlatform(DeACoudreMap map, MapTemplate builder) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
-        BlockPos.Mutable barrierPos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos barrierPos = new BlockPos.MutableBlockPos();
         int minZ = 5 + (2 * this.config.radius()) + 1;
         int minY = this.config.height();
 
@@ -87,7 +87,7 @@ public class DeACoudreMapGenerator {
         for (BlockPos pos : PLATFORM_BARRIER) {
             for (int y = 0; y < 3; y++) {
                 barrierPos.set(pos.getX(), pos.getY() + minY + y, minZ + pos.getZ());
-                builder.setBlockState(barrierPos, Blocks.BARRIER.getDefaultState());
+                builder.setBlockState(barrierPos, Blocks.BARRIER.defaultBlockState());
             }
         }
 

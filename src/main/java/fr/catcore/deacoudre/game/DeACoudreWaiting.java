@@ -4,14 +4,7 @@ import fr.catcore.deacoudre.game.concurrent.DeACoudreConcurrent;
 import fr.catcore.deacoudre.game.map.DeACoudreMap;
 import fr.catcore.deacoudre.game.map.DeACoudreMapGenerator;
 import fr.catcore.deacoudre.game.sequential.DeACoudreSequential;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
-import xyz.nucleoid.fantasy.RuntimeWorldConfig;
+import xyz.nucleoid.fantasy.RuntimeLevelConfig;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.MapTemplateSerializer;
 import xyz.nucleoid.plasmid.api.game.*;
@@ -26,15 +19,20 @@ import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 
 import java.io.IOException;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 
 public class DeACoudreWaiting {
     private final GameSpace gameSpace;
     private final DeACoudreMap map;
-    private final ServerWorld world;
+    private final ServerLevel world;
     private final DeACoudreConfig config;
     private final DeACoudreSpawnLogic spawnLogic;
 
-    private DeACoudreWaiting(GameSpace gameSpace, ServerWorld world, DeACoudreMap map, DeACoudreConfig config) {
+    private DeACoudreWaiting(GameSpace gameSpace, ServerLevel world, DeACoudreMap map, DeACoudreConfig config) {
         this.gameSpace = gameSpace;
         this.map = map;
         this.config = config;
@@ -59,7 +57,7 @@ public class DeACoudreWaiting {
                 }
         );
 
-        var worldConfig = new RuntimeWorldConfig()
+        var worldConfig = new RuntimeLevelConfig()
                 .setGenerator(map.asGenerator(context.server()));
 //
 //        BubbleWorldConfig worldConfig = new BubbleWorldConfig()
@@ -67,7 +65,7 @@ public class DeACoudreWaiting {
 //                .setDefaultGameMode(GameMode.SPECTATOR)
 //                .setSpawnAt(new Vec3d(map.getSpawn().getX(),map.getSpawn().getY(),map.getSpawn().getZ()));
 
-        return context.openWithWorld(worldConfig, (game, world) -> {
+        return context.openWithLevel(worldConfig, (game, world) -> {
             GameWaitingLobby.addTo(game, config.playerConfig());
 
             var waiting = new DeACoudreWaiting(game.getGameSpace(), world, map, config);
@@ -102,14 +100,14 @@ public class DeACoudreWaiting {
             return offer.pass();
         }
 
-        return offer.teleport(this.world, Vec3d.ofCenter(spawn))
+        return offer.teleport(this.world, Vec3.atCenterOf(spawn))
                 .thenRunForEach((player) -> {
-                    this.spawnLogic.spawnPlayer(player, GameMode.ADVENTURE);
+                    this.spawnLogic.spawnPlayer(player, GameType.ADVENTURE);
                 });
     }
 
-    private EventResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
-        this.spawnLogic.spawnPlayer(player, GameMode.ADVENTURE);
+    private EventResult onPlayerDeath(ServerPlayer player, DamageSource source) {
+        this.spawnLogic.spawnPlayer(player, GameType.ADVENTURE);
         return EventResult.DENY;
     }
 }

@@ -5,19 +5,6 @@ import fr.catcore.deacoudre.game.DeACoudreConfig;
 import fr.catcore.deacoudre.game.DeACoudrePool;
 import fr.catcore.deacoudre.game.DeACoudreSpawnLogic;
 import fr.catcore.deacoudre.game.map.DeACoudreMap;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.damage.DamageTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
 import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -26,6 +13,7 @@ import xyz.nucleoid.plasmid.api.game.event.GameActivityEvents;
 import xyz.nucleoid.plasmid.api.game.event.GamePlayerEvents;
 import xyz.nucleoid.plasmid.api.game.player.*;
 import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
+import xyz.nucleoid.plasmid.api.util.PlayerUtil;
 import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
@@ -34,24 +22,36 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 
 public class DeACoudreSequential {
     private final DeACoudreConfig config;
 
     public final GameSpace gameSpace;
     private final DeACoudreMap gameMap;
-    public final ServerWorld world;
+    public final ServerLevel world;
 
     private final DeACoudrePool pool;
 
-    private final Set<ServerPlayerEntity> participants;
-    private final List<ServerPlayerEntity> jumpOrder;
+    private final Set<ServerPlayer> participants;
+    private final List<ServerPlayer> jumpOrder;
 
     private final DeACoudrePlayerLives lives;
 
     private final DeACoudreSpawnLogic spawnLogic;
 
-    public ServerPlayerEntity currentJumper;
+    public ServerPlayer currentJumper;
     private int jumperIndex;
 
     private final DeACoudreSequentialScoreboard scoreboard;
@@ -60,7 +60,7 @@ public class DeACoudreSequential {
     private long closeTime = -1;
     private int jumpingTicks;
 
-    private DeACoudreSequential(GameSpace gameSpace, ServerWorld world, DeACoudreMap map, DeACoudreConfig config, Set<ServerPlayerEntity> participants, GlobalWidgets widgets) {
+    private DeACoudreSequential(GameSpace gameSpace, ServerLevel world, DeACoudreMap map, DeACoudreConfig config, Set<ServerPlayer> participants, GlobalWidgets widgets) {
         this.gameSpace = gameSpace;
         this.world = world;
         this.config = config;
@@ -81,7 +81,7 @@ public class DeACoudreSequential {
         this.singleplayer = this.participants.size() <= 1;
     }
 
-    public Set<ServerPlayerEntity> participants() {
+    public Set<ServerPlayer> participants() {
         return this.participants;
     }
 
@@ -89,11 +89,11 @@ public class DeACoudreSequential {
         return this.lives;
     }
 
-    public static void open(GameSpace gameSpace, ServerWorld world,  DeACoudreMap map, DeACoudreConfig config) {
+    public static void open(GameSpace gameSpace, ServerLevel world,  DeACoudreMap map, DeACoudreConfig config) {
         gameSpace.setActivity(game -> {
             var widgets = GlobalWidgets.addTo(game);
 
-            Set<ServerPlayerEntity> participants = Sets.newHashSet(gameSpace.getPlayers().participants());
+            Set<ServerPlayer> participants = Sets.newHashSet(gameSpace.getPlayers().participants());
             var active = new DeACoudreSequential(gameSpace, world, map, config, participants, widgets);
 
             game.deny(GameRuleType.CRAFTING);
@@ -120,18 +120,18 @@ public class DeACoudreSequential {
     }
 
     private void onOpen() {
-        for (ServerPlayerEntity player : this.participants) {
+        for (ServerPlayer player : this.participants) {
             this.spawnWaiting(player);
         }
 
-        MutableText text;
+        MutableComponent text;
         if (this.config.life() > 1) {
-            text = Text.translatable("text.dac.game.start_plural", this.config.life());
+            text = Component.translatable("text.dac.game.start_plural", this.config.life());
         } else {
-            text = Text.translatable("text.dac.game.start_singular");
+            text = Component.translatable("text.dac.game.start_singular");
         }
 
-        this.gameSpace.getPlayers().sendMessage(text.formatted(Formatting.GREEN));
+        this.gameSpace.getPlayers().sendMessage(text.withStyle(ChatFormatting.GREEN));
 
         this.currentJumper = this.jumpOrder.get(0);
         this.spawnJumper(this.currentJumper);
@@ -142,7 +142,7 @@ public class DeACoudreSequential {
     }
 
     private JoinAcceptorResult offerPlayer(JoinAcceptor offer) {
-        return offer.teleport(this.world, Vec3d.ofCenter(this.gameMap.getSpawn()))
+        return offer.teleport(this.world, Vec3.atCenterOf(this.gameMap.getSpawn()))
                 .thenRunForEach((player, intent) -> {
                     if (!this.participants.contains(player) || intent == JoinIntent.SPECTATE) {
                         this.spawnSpectator(player);
@@ -150,11 +150,11 @@ public class DeACoudreSequential {
                 });
     }
 
-    private EventResult onPlayerDamage(ServerPlayerEntity player, DamageSource source, float amount) {
+    private EventResult onPlayerDamage(ServerPlayer player, DamageSource source, float amount) {
         if (player == null) return EventResult.DENY;
 
         if (player == this.currentJumper) {
-            if (source.isOf(DamageTypes.OUT_OF_WORLD) || source.isOf(DamageTypes.FALL)) {
+            if (source.is(DamageTypes.FELL_OUT_OF_WORLD) || source.is(DamageTypes.FALL)) {
                 this.onPlayerFailJump(player);
             }
         } else {
@@ -164,27 +164,27 @@ public class DeACoudreSequential {
         return EventResult.DENY;
     }
 
-    private void onPlayerFailJump(ServerPlayerEntity player) {
+    private void onPlayerFailJump(ServerPlayer player) {
         int livesRemaining = this.lives.takeLife(player);
         if (livesRemaining == 0) {
             this.eliminatePlayer(player);
             return;
         }
 
-        MutableText message = Text.translatable("text.dac.game.lose_life", player.getDisplayName());
+        MutableComponent message = Component.translatable("text.dac.game.lose_life", player.getDisplayName());
         if (livesRemaining > 1) {
-            message = message.append(Text.translatable("text.dac.game.lives_left", livesRemaining));
+            message = message.append(Component.translatable("text.dac.game.lives_left", livesRemaining));
         } else {
-            message = message.append(Text.translatable("text.dac.game.life_left"));
+            message = message.append(Component.translatable("text.dac.game.life_left"));
         }
 
-        this.gameSpace.getPlayers().sendMessage(message.formatted(Formatting.YELLOW));
+        this.gameSpace.getPlayers().sendMessage(message.withStyle(ChatFormatting.YELLOW));
         this.nextJumper();
     }
 
-    private void onPlayerLandInWater(ServerPlayerEntity player) {
+    private void onPlayerLandInWater(ServerPlayer player) {
         PlayerSet players = this.gameSpace.getPlayers();
-        BlockPos pos = player.getBlockPos();
+        BlockPos pos = player.blockPosition();
 
         this.nextJumper();
 
@@ -192,9 +192,9 @@ public class DeACoudreSequential {
             this.pool.putCoudreAt(pos);
 
             int remainingLife = this.lives.grantLife(player);
-            players.sendMessage(Text.translatable("text.dac.game.dac", player.getDisplayName(), remainingLife).formatted(Formatting.AQUA));
-            players.playSound(SoundEvents.ENTITY_FIREWORK_ROCKET_LARGE_BLAST);
-            players.playSound(SoundEvents.ENTITY_FIREWORK_ROCKET_TWINKLE);
+            players.sendMessage(Component.translatable("text.dac.game.dac", player.getDisplayName(), remainingLife).withStyle(ChatFormatting.AQUA));
+            players.playSound(SoundEvents.FIREWORK_ROCKET_LARGE_BLAST);
+            players.playSound(SoundEvents.FIREWORK_ROCKET_TWINKLE);
         } else {
             this.pool.putBlockAt(player, pos);
             players.playSound(SoundEvents.AMBIENT_UNDERWATER_ENTER);
@@ -202,10 +202,10 @@ public class DeACoudreSequential {
     }
 
     private void nextJumper() {
-        ServerPlayerEntity finishedJumper = this.currentJumper;
+        ServerPlayer finishedJumper = this.currentJumper;
 
         int nextJumperIndex = this.getNextJumperIndex();
-        ServerPlayerEntity nextJumper = nextJumperIndex != -1 ? this.jumpOrder.get(nextJumperIndex) : null;
+        ServerPlayer nextJumper = nextJumperIndex != -1 ? this.jumpOrder.get(nextJumperIndex) : null;
 
         if (finishedJumper != null && nextJumper != finishedJumper) {
             this.spawnWaiting(finishedJumper);
@@ -220,22 +220,22 @@ public class DeACoudreSequential {
         this.jumpingTicks = 0;
     }
 
-    private EventResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
+    private EventResult onPlayerDeath(ServerPlayer player, DamageSource source) {
         this.eliminatePlayer(player);
         return EventResult.DENY;
     }
 
-    private void eliminatePlayer(ServerPlayerEntity player) {
+    private void eliminatePlayer(ServerPlayer player) {
         if (this.participants.remove(player)) {
             this.jumpOrder.remove(player);
             this.lives.removePlayer(player);
 
-            Text message = Text.translatable("text.dac.game.eliminated", player.getDisplayName())
-                    .formatted(Formatting.RED);
+            Component message = Component.translatable("text.dac.game.eliminated", player.getDisplayName())
+                    .withStyle(ChatFormatting.RED);
 
             PlayerSet players = this.gameSpace.getPlayers();
             players.sendMessage(message);
-            players.playSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP);
+            players.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP);
 
             this.spawnSpectator(player);
 
@@ -246,10 +246,10 @@ public class DeACoudreSequential {
     }
 
     private void tick() {
-        ServerPlayerEntity jumper = this.currentJumper;
+        ServerPlayer jumper = this.currentJumper;
         PlayerSet players = this.gameSpace.getPlayers();
-        ServerWorld world = this.world;
-        long time = world.getTime();
+        ServerLevel world = this.world;
+        long time = world.getGameTime();
 
         // check for invalid jumper
         if (jumper == null || !players.contains(jumper) || !this.participants.contains(jumper)) {
@@ -270,22 +270,22 @@ public class DeACoudreSequential {
             return;
         }
 
-        if (this.pool.isFreeAt(jumper.getBlockPos())) {
+        if (this.pool.isFreeAt(jumper.blockPosition())) {
             this.onPlayerLandInWater(jumper);
         }
 
         if (this.jumpingTicks % 20 == 0) {
             int remainingJumpingSeconds = Math.max(20 - jumpingSeconds, 0);
             if (remainingJumpingSeconds == 1) {
-                jumper.sendMessage(Text.translatable("text.dac.time.1"), true);
+                jumper.sendSystemMessage(Component.translatable("text.dac.time.1"), true);
             } else {
-                jumper.sendMessage(Text.translatable("text.dac.time.+", remainingJumpingSeconds), true);
+                jumper.sendSystemMessage(Component.translatable("text.dac.time.+", remainingJumpingSeconds), true);
             }
 
             if (remainingJumpingSeconds == 0) {
                 int remainingLife = this.lives.takeLife(jumper);
 
-                players.sendMessage(Text.translatable("text.dac.game.slow", jumper.getName().getString(), remainingLife).formatted(Formatting.YELLOW));
+                players.sendMessage(Component.translatable("text.dac.game.slow", jumper.getName().getString(), remainingLife).withStyle(ChatFormatting.YELLOW));
                 this.nextJumper();
 
                 if (remainingLife == 0) {
@@ -302,7 +302,7 @@ public class DeACoudreSequential {
     }
 
     @Nullable
-    public ServerPlayerEntity getNextJumper() {
+    public ServerPlayer getNextJumper() {
         int jumperIndex = this.getNextJumperIndex();
         return jumperIndex != -1 ? this.jumpOrder.get(jumperIndex) : null;
     }
@@ -314,24 +314,24 @@ public class DeACoudreSequential {
         return (this.jumperIndex + 1) % this.jumpOrder.size();
     }
 
-    private void spawnWaiting(ServerPlayerEntity player) {
-        this.spawnLogic.spawnPlayer(player, GameMode.ADVENTURE);
+    private void spawnWaiting(ServerPlayer player) {
+        this.spawnLogic.spawnPlayer(player, GameType.ADVENTURE);
         player.fallDistance = 0.0F;
     }
 
-    private void spawnSpectator(ServerPlayerEntity player) {
-        this.spawnLogic.spawnPlayer(player, GameMode.SPECTATOR);
+    private void spawnSpectator(ServerPlayer player) {
+        this.spawnLogic.spawnPlayer(player, GameType.SPECTATOR);
     }
 
-    private void spawnJumper(ServerPlayerEntity jumper) {
-        Vec3d platformSpawn = this.gameMap.getJumpingPlatform().center();
+    private void spawnJumper(ServerPlayer jumper) {
+        Vec3 platformSpawn = this.gameMap.getJumpingPlatform().center();
 
-        jumper.teleport(this.world, platformSpawn.x, platformSpawn.y, platformSpawn.z, Set.of(), 180F, 0F, false);
+        jumper.teleportTo(this.world, platformSpawn.x, platformSpawn.y, platformSpawn.z, Set.of(), 180F, 0F, false);
         jumper.fallDistance = 0.0F;
 
-        jumper.playSoundToPlayer(SoundEvents.BLOCK_BELL_USE, SoundCategory.MASTER, 1.0F, 1.0F);
+        PlayerUtil.playSoundToPlayer(jumper, SoundEvents.BELL_BLOCK, SoundSource.MASTER, 1.0F, 1.0F);
 
-        this.gameSpace.getPlayers().sendMessage(Text.translatable("text.dac.game.turn", jumper.getDisplayName()).formatted(Formatting.BLUE));
+        this.gameSpace.getPlayers().sendMessage(Component.translatable("text.dac.game.turn", jumper.getDisplayName()).withStyle(ChatFormatting.BLUE));
     }
 
     private WinResult checkWinResult() {
@@ -344,9 +344,9 @@ public class DeACoudreSequential {
             return WinResult.win(null);
         }
 
-        ServerPlayerEntity winningPlayer = null;
+        ServerPlayer winningPlayer = null;
 
-        for (ServerPlayerEntity player : this.participants) {
+        for (ServerPlayer player : this.participants) {
             if (player != null) {
                 // we still have more than one player remaining
                 if (winningPlayer != null) {
@@ -361,18 +361,18 @@ public class DeACoudreSequential {
     }
 
     private void broadcastWin(WinResult result) {
-        ServerPlayerEntity winningPlayer = result.getWinningPlayer();
+        ServerPlayer winningPlayer = result.getWinningPlayer();
 
-        Text message;
+        Component message;
         if (winningPlayer != null) {
-            message = Text.translatable("text.dac.game.won", winningPlayer.getDisplayName()).formatted(Formatting.GOLD);
+            message = Component.translatable("text.dac.game.won", winningPlayer.getDisplayName()).withStyle(ChatFormatting.GOLD);
         } else {
-            message = Text.translatable("text.dac.game.won.nobody").formatted(Formatting.GOLD);
+            message = Component.translatable("text.dac.game.won.nobody").withStyle(ChatFormatting.GOLD);
         }
 
         PlayerSet players = this.gameSpace.getPlayers();
         players.sendMessage(message);
-        players.playSound(SoundEvents.ENTITY_VILLAGER_YES);
+        players.playSound(SoundEvents.VILLAGER_YES);
     }
 
     private void tickClosing(GameSpace game, long time) {
@@ -381,13 +381,13 @@ public class DeACoudreSequential {
         }
     }
 
-    record WinResult(ServerPlayerEntity winningPlayer, boolean win) {
+    record WinResult(ServerPlayer winningPlayer, boolean win) {
 
         static WinResult no() {
             return new WinResult(null, false);
         }
 
-        static WinResult win(ServerPlayerEntity player) {
+        static WinResult win(ServerPlayer player) {
             return new WinResult(player, true);
         }
 
@@ -395,7 +395,7 @@ public class DeACoudreSequential {
             return this.win;
         }
 
-        public ServerPlayerEntity getWinningPlayer() {
+        public ServerPlayer getWinningPlayer() {
             return this.winningPlayer;
         }
     }

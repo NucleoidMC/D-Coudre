@@ -1,9 +1,9 @@
 package fr.catcore.deacoudre.game.map;
 
-import net.minecraft.util.math.BlockPos;
 import xyz.nucleoid.map_templates.BlockBounds;
 
 import java.util.function.Consumer;
+import net.minecraft.core.BlockPos;
 
 public class BlockBoundsBuilder implements Consumer<BlockPos> {
     private final Consumer<BlockPos> delegate;
@@ -16,7 +16,7 @@ public class BlockBoundsBuilder implements Consumer<BlockPos> {
 
     @Override
     public void accept(BlockPos pos) {
-        var addedBounds = BlockBounds.ofBlock(pos.toImmutable());
+        var addedBounds = BlockBounds.ofBlock(pos.immutable());
         this.bounds = this.bounds == null ? addedBounds : this.bounds.union(addedBounds);
 
         this.delegate.accept(pos);

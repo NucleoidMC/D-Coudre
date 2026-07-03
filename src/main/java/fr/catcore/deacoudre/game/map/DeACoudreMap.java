@@ -1,17 +1,17 @@
 package fr.catcore.deacoudre.game.map;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.MapTemplateMetadata;
-import xyz.nucleoid.plasmid.api.game.world.generator.TemplateChunkGenerator;
+import xyz.nucleoid.plasmid.api.game.level.generator.TemplateChunkGenerator;
 
 public class DeACoudreMap {
     private final MapTemplate template;
-    private BlockPos spawn = BlockPos.ORIGIN;
+    private BlockPos spawn = BlockPos.ZERO;
 
     private BlockBounds pool = null;
     private BlockBounds jumpingPlatform = null;
@@ -35,9 +35,9 @@ public class DeACoudreMap {
         BlockBounds jumpingArea = templateMetadata.getFirstRegionBounds("jumping_area");
         map.setJumpingArea(jumpingArea);
 
-        Vec3d spawn = templateMetadata.getFirstRegionBounds("spawn").center();
+        Vec3 spawn = templateMetadata.getFirstRegionBounds("spawn").center();
 
-        map.setSpawn(BlockPos.ofFloored(spawn));
+        map.setSpawn(BlockPos.containing(spawn));
 
         return map;
     }
